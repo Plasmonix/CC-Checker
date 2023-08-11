@@ -16,8 +16,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $year = $_POST["year"];
         $cvc = $_POST["cvc"];
 
-        process_card($ccn, $month, $year, $cvc, $proxies);
-        
+        if (empty($proxies)) {
+            http_response_code(500);
+            echo json_encode(["error" => "No proxies available"]);
+        } else {
+            process_card($ccn, $month, $year, $cvc, $proxies);
+        }
     } else {
         http_response_code(400);
         echo json_encode([
@@ -102,7 +106,6 @@ function get_stripe_data()
         if ($muid && $guid && $sid) {
             return [$muid, $guid, $sid];
         }
-
     } catch (Exception $e) {
         http_response_code(500);
         return json_encode(["error" => $e->getMessage()]);
@@ -268,6 +271,7 @@ function process_card($ccn, $month, $year, $cvc, $proxies)
                     "header" => $headers,
                     "content" => json_encode($payload),
                     "proxy" => "tcp://" . $proxies[array_rand($proxies)],
+                    "timeout" => 10,
                 ],
             ]);
 
@@ -278,7 +282,7 @@ function process_card($ccn, $month, $year, $cvc, $proxies)
             );
 
             if ($payment_req == false) {
-                throw new Exception("Ratelimited");
+                throw new Exception("Failed to retrieve payment intent or rate limited");
             }
 
             $payment_data = json_decode($payment_req, true);
@@ -320,6 +324,7 @@ function process_card($ccn, $month, $year, $cvc, $proxies)
                     ],
                     "content" => http_build_query($payment_data),
                     "proxy" => "tcp://" . $proxies[array_rand($proxies)],
+                    "timeout" => 10,
                 ],
             ]);
 
@@ -332,7 +337,7 @@ function process_card($ccn, $month, $year, $cvc, $proxies)
             );
 
             if ($response === false) {
-                throw new Exception("Failed to confirm payment.");
+                throw new Exception("Stripe payment gateway failed or rate limited");
             }
 
             $conditions = [
