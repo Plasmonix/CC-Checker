@@ -36,7 +36,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 function get_random_user()
 {
     try {
-        $response = file_get_contents("https://randomuser.me/api/?nat=us");
+        $response = file_get_contents("https://randomuser.me/api?nat=us");
 
         if ($response === false) {
             throw new Exception("Failed to fetch random data from API.");
